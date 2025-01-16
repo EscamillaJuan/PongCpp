@@ -1,6 +1,98 @@
 #include <iostream>
 #include "raylib.h"
 
+Color Green = Color{38, 185, 154, 255};
+Color Dark_Green = Color{20, 160, 133, 255};
+Color Light_Green = Color{129, 204, 184, 255};
+Color Yellow = Color{243, 213, 91, 255};
+
+int player_score = 0;
+int cpu_score = 0;
+
+class Ball {
+    protected:
+        void ResetBall() {
+            x = GetScreenWidth() / 2;
+            y = GetScreenHeight() / 2;
+            int speed_choices[2] = {-1, 1};
+            speed_x *= speed_choices[GetRandomValue(0,1)];
+            speed_y *= speed_choices[GetRandomValue(0,1)];
+        }
+    public:
+        float x, y;
+        int speed_x, speed_y;
+        int radius;
+
+        void Draw() {
+            DrawCircle(x, y, radius, YELLOW);
+        }
+
+        void Update() {
+            x += speed_x;
+            y += speed_y;
+            if (y + radius >= GetScreenHeight() || y - radius <= 0) {
+                speed_y *= -1;
+            }
+
+            if (x + radius >= GetScreenWidth()) {
+                cpu_score++;
+                ResetBall();
+            }
+            if (x - radius <=0) {
+                player_score++;
+                ResetBall();
+            }
+        }
+};
+
+class Paddle {
+    protected:
+        void LimitMovement() {
+             if (y <= 1) {
+                y = 0;
+            }
+            if (y + heigth >= GetScreenHeight() + 1) {
+                y = GetScreenHeight() - heigth;
+            }
+        }
+    public:
+        float x, y,
+            heigth, width;
+        int speed;
+
+        void Draw() {
+            DrawRectangleRounded(Rectangle{x, y, width, heigth}, 0.8, 0, WHITE);
+        }
+
+        void Update() {
+            if (IsKeyDown(KEY_UP)) {
+                y = y - speed;
+            }
+            if (IsKeyDown(KEY_DOWN)) {
+                y = y + speed;
+            }
+            LimitMovement();
+
+        }
+};
+
+class CpuPlayer: public Paddle {
+    public:
+        void Update(int ball_y) {
+            if (y + heigth / 2 > ball_y) {
+                y = y - speed;
+            }
+            if (y + heigth / 2 <= ball_y) {
+                y = y + speed;
+            }
+            LimitMovement();
+        }
+};
+
+Ball ball;
+Paddle player;
+CpuPlayer cpu;
+
 int main(int argc, char const *argv[])
 {
     std::cout << "Starting the game" << std::endl;
@@ -10,13 +102,51 @@ int main(int argc, char const *argv[])
     InitWindow(screen_width, screen_height, "Pong Game");
     SetTargetFPS(60);
 
+    ball.radius = 20;
+    ball.x = screen_width / 2;
+    ball.y = screen_height / 2;
+    ball.speed_x = 7;
+    ball.speed_y = 7;
+
+    player.width = 25;
+    player.heigth = 120;
+    player.x = screen_width - player.width - 10;
+    player.y = screen_height / 2 - player.heigth / 2;
+    player.speed = 6;
+
+    cpu.width = 25;
+    cpu.heigth = 120;
+    cpu.x = 10;
+    cpu.y = screen_height / 2 - cpu.heigth / 2;
+    cpu.speed = 6;
+
     while (!WindowShouldClose()) {
         BeginDrawing();
 
-        DrawCircle(screen_width/2, screen_height/2, 20, WHITE);
-        DrawRectangle(10, (screen_height - 120)/2, 25, 120, WHITE);
-        DrawRectangle(screen_width - 35, (screen_height - 120)/2, 25, 120, WHITE);
+        // Updating
+        ball.Update();
+        player.Update();
+        cpu.Update(ball.y);
+
+        // Checking collision
+        if (CheckCollisionCircleRec(Vector2{ball.x, ball.y}, ball.radius, Rectangle{player.x, player.y, player.width, player.heigth})) {
+            ball.speed_x *= -1;
+        }
+        if (CheckCollisionCircleRec(Vector2{ball.x, ball.y}, ball.radius, Rectangle{cpu.x, cpu.y, cpu.width, cpu.heigth})) {
+            ball.speed_x *= -1;
+        }
+
+        // Drawing objects
+        ClearBackground(Dark_Green);
+        DrawRectangle(screen_width / 2, 0, screen_width / 2, screen_height, Green);
+        DrawCircle(screen_width / 2, screen_height / 2, 150, Light_Green);
         DrawLine(screen_width / 2, 0, screen_width/2, screen_height, WHITE);
+        ball.Draw();
+        cpu.Draw();
+        player.Draw();
+        DrawText(TextFormat("%i", cpu_score), screen_width / 4 - 20, 20, 80, WHITE);
+        DrawText(TextFormat("%i", player_score), 3 * screen_width / 4 - 20, 20, 80, WHITE);
+
         EndDrawing();
     }
 
